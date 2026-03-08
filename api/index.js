@@ -22,8 +22,13 @@ const {
 
 // DB Connection - SSL Fixed for cloud hosting
 const pool = new Pool({
-    connectionString: DATABASE_URL,
-    ssl: { rejectUnauthorized: false }
+    connectionString: process.env.DATABASE_URL,
+    ssl: { 
+        rejectUnauthorized: false // This is mandatory for Koyeb/Render/Heroku Postgres
+    },
+    max: 10, // Good practice for Pgbouncer
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 2000,
 });
 
 // Initialize Database Table

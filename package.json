@@ -1,0 +1,20 @@
+{
+  "name": "hotrr-access-bot",
+  "version": "1.0.0",
+  "description": "H.O.T.R.R Access Bot for Hot Off Trends Red Room premium subscriptions",
+  "main": "api/index.js",
+  "scripts": {
+    "start": "node api/index.js",
+    "dev": "node api/index.js"
+  },
+  "dependencies": {
+    "node-telegram-bot-api": "^0.66.0",
+    "pg": "^8.11.0",
+    "express": "^4.19.2",
+    "axios": "^1.7.7",
+    "dotenv": "^16.4.5"
+  },
+  "engines": {
+    "node": "20.x"
+  }
+}

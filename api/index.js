@@ -21,27 +21,27 @@ const {
 const CATALOG = {
     "v1": {
         id: "v1",
-        link: "https://trimd.cc/video1",
-        cover: "https://trimd.cc/photovideo1",
-        caption: "🔥 Exclusive Video 1 - Solo Session",
+        link: "https://cdn2.bhojpurisex.site/2024/08/Nepali-couple-ke-outdoor-sex-ke-viral-mms-video.mp4",
+        cover: "https://lucahmelayu.club/wp-content/uploads/2019/04/Lucah-dalam-bilik.jpg",
+        caption: "🔥 Viral Video: Nepali couple doing it outdoor ",
         stars: 50,
         kes: 100,
         usd: 1
     },
     "v2": {
         id: "v2",
-        link: "https://trimd.cc/video2",
-        cover: "https://trimd.cc/photovideo1", // Using the photo you provided
-        caption: "🔞 Exclusive Video 2 - Red Room Special",
+        link: "https://v80.erome.com/7067/d8YCY2p5/mBOmnnsf_720p.mp4",
+        cover: "https://s80.erome.com/7067/d8YCY2p5/mBOmnnsf.jpg", // Using the photo you provided
+        caption: "🔞Finally found the clip… not gonna lie, the surgery room caught me off guard 😂",
         stars: 50,
         kes: 100,
         usd: 1
     },
     "v3": {
         id: "v3",
-        link: "https://trimd.cc/video3",
-        cover: "https://trimd.cc/photovideo31", // Primary cover
-        album: ["https://trimd.cc/photovideo31", "https://trimd.cc/photovideo32", "https://trimd.cc/photovideo33"],
+        link: "https://cdn.rahaporn.com/Rahaporn/Marion%20naipei%20porn%20videos%20Watch%20jelly%20kunt%20New%20Porn%20Video%20Stripchat%20-%20ebony%2C%20deepthroat%2C%20kissing%2C%20cowgirl%2C%20brunettes-young.mp4.mp4",
+        cover: "https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEgJSIj-UeeGZzfnK7XtoOIyUZUTdSGUO_zc-X8U-XCTNK25wZT-yGJJ2zS75_BA7k-A5psXXXe_1onYVMyfhM2p5A4X0bLVKy4LN66jo44664D2OmM5gpZaS2YteRqdLc09FfFuDpGFT00pEDwoCrY07jF_JLRTxW-tvJL5hwPtFA1Q3w7iLrBxFOH3wAg/w640-h474/1.jpg", // Primary cover
+        album: ["https://www.bana.co.ke/wp-content/uploads/2026/01/twerking-marion-naipei-viral-video.jpg", "https://venasnews.co.ke/wp-content/uploads/2026/01/marion-naipei1.jpg", "https://www.bana.co.ke/wp-content/uploads/2026/01/marion-naipei-trending-video-photo.jpg"],
         caption: "🍑 Marion Naipei Mega Pack (30+ Videos)",
         stars: 500,
         kes: 1500,

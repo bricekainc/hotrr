@@ -1,8 +1,6 @@
-// api/index.js
 const TelegramBot = require('node-telegram-bot-api');
 const express = require('express');
 const axios = require('axios');
-const { Pool } = require('pg');
 
 const app = express();
 app.use(express.json());
@@ -11,75 +9,72 @@ app.set('trust proxy', 1);
 // Environment Variables
 const {
     BOT_TOKEN,
-    ADMIN_ID,
     WEBAPP_URL,
     PAYHERO_API_USERNAME: PAYHERO_USER,
     PAYHERO_API_PASSWORD: PAYHERO_PASS,
     PAYHERO_CHANNEL_ID: PAYHERO_CHANNEL,
-    COINPAYMENTS_MERCHANT_ID: CP_MERCHANT_ID,
-    DATABASE_URL
+    COINPAYMENTS_MERCHANT_ID: CP_MERCHANT_ID
 } = process.env;
 
-// DB Connection - SSL Fixed for Koyeb/GitLab
-const pool = new Pool({
-    connectionString: DATABASE_URL,
-    ssl: { rejectUnauthorized: false }
-});
-
-// Initialize Database Table
-async function initDB() {
-    try {
-        await pool.query(`
-            CREATE TABLE IF NOT EXISTS catalog (
-                id TEXT PRIMARY KEY,
-                video_link TEXT,
-                caption TEXT,
-                cover_id TEXT,
-                stars INTEGER DEFAULT 250,
-                kes INTEGER DEFAULT 450,
-                usd INTEGER DEFAULT 5
-            );
-        `);
-        console.log("✅ Database initialized successfully");
-    } catch (err) {
-        console.error("❌ Database initialization failed:", err.message);
+// --- HARDCODED CATALOG ---
+// You can add more videos here manually whenever you want.
+const CATALOG = {
+    "v1": {
+        id: "v1",
+        link: "https://trimd.cc/video1",
+        cover: "https://trimd.cc/photovideo1",
+        caption: "🔥 Exclusive Video 1 - Solo Session",
+        stars: 50,
+        kes: 100,
+        usd: 1
+    },
+    "v2": {
+        id: "v2",
+        link: "https://trimd.cc/video2",
+        cover: "https://trimd.cc/photovideo1", // Using the photo you provided
+        caption: "🔞 Exclusive Video 2 - Red Room Special",
+        stars: 50,
+        kes: 100,
+        usd: 1
+    },
+    "v3": {
+        id: "v3",
+        link: "https://trimd.cc/video3",
+        cover: "https://trimd.cc/photovideo31", // Primary cover
+        album: ["https://trimd.cc/photovideo31", "https://trimd.cc/photovideo32", "https://trimd.cc/photovideo33"],
+        caption: "🍑 Marion Naipei Mega Pack (30+ Videos)",
+        stars: 500,
+        kes: 1500,
+        usd: 20
     }
-}
-initDB();
+};
 
 const bot = new TelegramBot(BOT_TOKEN, { webHook: true });
 let userState = {};
 
 // -------------------- DELIVERY LOGIC --------------------
-async function deliverContent(userId, item, provider = "Free Access") {
+async function deliverContent(userId, item, provider) {
     try {
         const opts = {
-            caption: `✅ **Access Granted via ${provider}!**\n\n${item.caption}\n\n_Your premium content link is ready below._`,
+            caption: `✅ **PAYMENT VERIFIED via ${provider}**\n\n${item.caption}\n\n_Your access link is ready:_`,
             parse_mode: 'Markdown',
             reply_markup: {
-                inline_keyboard: [[{ text: "🚀 Watch / Download Now", url: item.video_link }]]
+                inline_keyboard: [[{ text: "🚀 WATCH / DOWNLOAD NOW", url: item.link }]]
             }
         };
-        
-        await bot.sendPhoto(userId, item.cover_id, opts);
-        
-        if (provider !== "Free Access") {
-            await bot.sendMessage(ADMIN_ID, `💰 SALE: [${item.id}] sold to ${userId} via ${provider}`);
-        }
+        await bot.sendPhoto(userId, item.cover, opts);
     } catch (e) {
-        console.error("Delivery Error:", e.message);
-        await bot.sendMessage(userId, "❌ Error providing link. Please contact support.");
+        await bot.sendMessage(userId, "❌ Delivery error. Please contact support with your payment proof.");
     }
 }
 
 // -------------------- M-PESA GATEWAY --------------------
 async function initiateSTKPush(userId, phone, productId) {
+    const item = CATALOG[productId];
+    const auth = Buffer.from(`${PAYHERO_USER}:${PAYHERO_PASS}`).toString('base64');
     try {
-        const res = await pool.query('SELECT kes FROM catalog WHERE id = $1', [productId]);
-        const amount = res.rows[0]?.kes;
-        const auth = Buffer.from(`${PAYHERO_USER}:${PAYHERO_PASS}`).toString('base64');
         const response = await axios.post('https://backend.payhero.co.ke/api/v2/payments', {
-            amount: Number(amount),
+            amount: item.kes,
             phone_number: phone,
             channel_id: Number(PAYHERO_CHANNEL),
             provider: 'm-pesa',
@@ -87,199 +82,124 @@ async function initiateSTKPush(userId, phone, productId) {
             callback_url: `${WEBAPP_URL}/payhero/callback`
         }, { headers: { Authorization: `Basic ${auth}` } });
         return response.data.success || response.data.status === 'QUEUED';
-    } catch (e) {
-        console.error("Mpesa Error:", e.message);
-        return false;
-    }
+    } catch { return false; }
 }
 
-// -------------------- WEBHOOK ROUTE --------------------
+// -------------------- WEBHOOKS --------------------
 app.post('/api/webhook', (req, res) => {
     res.sendStatus(200);
     bot.processUpdate(req.body);
 });
 
-// -------------------- NEUBRUTALISM WEB UI --------------------
 app.get('/', (req, res) => {
     res.send(`
     <!DOCTYPE html>
-    <html lang="en">
+    <html>
     <head>
-        <meta charset="UTF-8">
-        <title>H.O.T Red Room | Standalone Access</title>
+        <title>H.O.T Red Room | Premium</title>
         <style>
             :root { --bg: #fdfd96; --primary: #ff5c5c; --dark: #000; --blue: #5c7cff; }
-            body { background: var(--bg); font-family: 'Arial Black', sans-serif; color: var(--dark); padding: 20px; display: flex; flex-direction: column; align-items: center; }
-            .card { background: white; border: 5px solid var(--dark); box-shadow: 15px 15px 0px var(--dark); padding: 30px; max-width: 600px; width: 100%; margin-top: 50px; }
-            h1 { text-transform: uppercase; font-size: 3.5rem; background: var(--primary); padding: 15px; border: 5px solid var(--dark); transform: rotate(-2deg); display: inline-block; margin-bottom: 40px; }
-            .step { margin: 25px 0; font-weight: 900; font-size: 1.4rem; border-left: 10px solid var(--blue); padding-left: 20px; line-height: 1.2; }
-            .btn { background: var(--blue); color: white; border: 5px solid var(--dark); padding: 25px 50px; font-weight: 900; text-decoration: none; display: block; text-align: center; box-shadow: 8px 8px 0px var(--dark); margin-top: 40px; font-size: 1.5rem; transition: 0.1s; }
-            .btn:hover { transform: translate(-2px, -2px); box-shadow: 10px 10px 0px var(--dark); }
-            .stars-badge { background: #00d1ff; padding: 15px; border: 4px solid var(--dark); margin-top: 20px; font-weight: bold; font-size: 1rem; text-align: center; }
+            body { background: var(--bg); font-family: 'Arial Black', sans-serif; padding: 40px; display: flex; flex-direction: column; align-items: center; text-align: center; }
+            .card { background: white; border: 5px solid var(--dark); box-shadow: 15px 15px 0px var(--dark); padding: 30px; max-width: 500px; }
+            h1 { text-transform: uppercase; font-size: 3rem; background: var(--primary); padding: 10px; border: 5px solid var(--dark); transform: rotate(-2deg); }
+            .btn { background: var(--blue); color: white; border: 5px solid var(--dark); padding: 20px; text-decoration: none; display: block; font-weight: 900; box-shadow: 5px 5px 0px var(--dark); margin-top: 20px; }
         </style>
     </head>
     <body>
-        <h1>RED ROOM PREMIUM</h1>
+        <h1>RED ROOM ACCESS</h1>
         <div class="card">
-            <div class="step">1. SEARCH CONTENT BY KEYWORD IN THE BOT</div>
-            <div class="step">2. UNLOCK VIA TELEGRAM STARS, M-PESA, OR CRYPTO</div>
-            <div class="step">3. RECEIVE HIGH-QUALITY VIDEOS INSTANTLY</div>
-            <div class="stars-badge">🌟 PRO TIP: PAY WITH TELEGRAM STARS FOR A 30% DISCOUNT AND INSTANT ACTIVATION.</div>
-            <a href="https://t.me/RedRoomAccessbot" class="btn">LAUNCH BOT NOW</a>
+            <p>1. Browse Content in Bot<br>2. Pay via Stars/M-Pesa/Crypto<br>3. Instant Delivery</p>
+            <a href="https://t.me/RedRoomAccessbot" class="btn">LAUNCH TELEGRAM BOT</a>
         </div>
     </body>
     </html>
     `);
 });
 
-// -------------------- BOT MESSAGE HANDLER --------------------
+// -------------------- BOT LOGIC --------------------
 bot.on('message', async (msg) => {
     const userId = msg.from.id;
     const text = (msg.text || "").trim();
-    if (msg.successful_payment) return;
 
-    try {
-        // --- ADMIN ACTIONS ---
-        if (String(userId) === ADMIN_ID) {
-            if (text === '/add') {
-                userState[userId] = { step: 'WAITING_FOR_LINK' };
-                return bot.sendMessage(userId, "🔗 **ADMIN MODE:** Send the **Video Link** (Watch/Download URL).");
-            }
-            if (userState[userId]?.step === 'WAITING_FOR_LINK' && text.startsWith('http')) {
-                userState[userId].videoLink = text;
-                userState[userId].step = 'WAITING_FOR_CAPTION';
-                return bot.sendMessage(userId, "📝 Now send the **Caption/Keywords** for this pack.");
-            }
-            if (userState[userId]?.step === 'WAITING_FOR_CAPTION' && text && !text.startsWith('/')) {
-                userState[userId].caption = text;
-                userState[userId].step = 'WAITING_FOR_COVER';
-                return bot.sendMessage(userId, "🖼 Send the **Cover Photo** users will see.");
-            }
-            if (userState[userId]?.step === 'WAITING_FOR_COVER' && msg.photo) {
-                const coverId = msg.photo[msg.photo.length - 1].file_id;
-                const pId = 'p' + Date.now();
-                await pool.query(
-                    'INSERT INTO catalog (id, video_link, caption, cover_id) VALUES ($1, $2, $3, $4)',
-                    [pId, userState[userId].videoLink, userState[userId].caption, coverId]
-                );
-                delete userState[userId];
-                const link = `https://t.me/RedRoomAccessbot?start=${pId}`;
-                return bot.sendMessage(userId, `🎉 **Pack Created!**\n\nLink:\n<code>${link}</code>`, { parse_mode: 'HTML' });
-            }
-            if (text.startsWith('/edit')) {
-                const [_, id, stars, kes, usd] = text.split(' ');
-                await pool.query('UPDATE catalog SET stars=$1, kes=$2, usd=$3 WHERE id=$4', [stars, kes, usd, id]);
-                return bot.sendMessage(userId, `✅ Updated! ID: ${id} pricing updated.`);
-            }
-        }
+    if (text.startsWith('/start')) {
+        const welcome = `🔞 <b>Welcome to H.O.T Red Room Premium</b>\n\n` +
+            `Everything you see here is delivered <b>instantly</b> once unlocked.\n\n` +
+            `⭐️ <b>Telegram Stars:</b> Recommended (Instant).\n` +
+            `📲 <b>M-Pesa:</b> Automatic STK push.\n` +
+            `💰 <b>Crypto:</b> Secure checkout.\n\n` +
+            `Click below to see our available collection:`;
 
-        // --- USER ACTIONS ---
-        if (text.toLowerCase().startsWith('/start')) {
-            const payload = text.split(' ')[1];
-            
-            const welcomeMsg = `🔞 <b>Welcome to H.O.T Red Room Premium</b>\n\n` +
-                `Everything you see here is delivered <b>instantly</b> once unlocked.\n\n` +
-                `⭐️ <b>Telegram Stars:</b> Recommended. 30% cheaper.\n` +
-                `📲 <b>M-Pesa:</b> Instant STK push.\n` +
-                `💰 <b>Crypto:</b> Automatic confirmation.\n\n` +
-                `🔍 <b>Search:</b> Type a keyword or browse below:`;
-
-            if (payload) {
-                const res = await pool.query('SELECT * FROM catalog WHERE id = $1', [payload]);
-                const item = res.rows[0];
-                if (item) {
-                    if (item.stars === 0) return deliverContent(userId, item);
-                    return bot.sendPhoto(userId, item.cover_id, {
-                        caption: `🔥 **EXCLUSIVE PACK UNLOCK**\n\n${item.caption}`,
-                        reply_markup: { inline_keyboard: [[{ text: `Unlock - ${item.stars} ⭐`, callback_data: `buy_${payload}` }]] }
-                    });
-                }
+        await bot.sendMessage(userId, welcome, { 
+            parse_mode: 'HTML',
+            reply_markup: {
+                inline_keyboard: [[{ text: "🔓 UNLOCK EVERYTHING / BROWSE", callback_data: "browse_all" }]]
             }
-            
-            await bot.sendMessage(userId, welcomeMsg, { parse_mode: 'HTML' });
-            const latest = await pool.query('SELECT * FROM catalog ORDER BY id DESC LIMIT 3');
-            for (const item of latest.rows) {
-                await bot.sendPhoto(userId, item.cover_id, {
-                    caption: item.caption,
-                    reply_markup: { inline_keyboard: [[{ text: item.stars === 0 ? "FREE ACCESS" : `Unlock - ${item.stars} ⭐`, callback_data: `buy_${item.id}` }]] }
-                });
-            }
-            return;
-        }
+        });
+        return;
+    }
 
-        // Search
-        if (text && !userState[userId]?.awaitingMpesa && String(userId) !== ADMIN_ID) {
-            const res = await pool.query('SELECT * FROM catalog WHERE caption ILIKE $1', [`%${text}%`]);
-            for (const item of res.rows) {
-                await bot.sendPhoto(userId, item.cover_id, {
-                    caption: item.caption,
-                    reply_markup: { inline_keyboard: [[{ text: item.stars === 0 ? "FREE ACCESS" : `Unlock - ${item.stars} ⭐`, callback_data: `buy_${item.id}` }]] }
-                });
-            }
-        }
-
-        // M-Pesa Input
-        if (userState[userId]?.awaitingMpesa) {
-            const pId = userState[userId].product;
-            await initiateSTKPush(userId, text, pId);
-            userState[userId].awaitingMpesa = false;
-            bot.sendMessage(userId, "✅ Check phone for M-Pesa PIN prompt.");
-        }
-    } catch (e) { console.error("General Error:", e.message); }
+    if (userState[userId]?.awaitingMpesa) {
+        const pId = userState[userId].product;
+        const ok = await initiateSTKPush(userId, text, pId);
+        userState[userId].awaitingMpesa = false;
+        bot.sendMessage(userId, ok ? "✅ STK Push sent! Enter PIN on phone." : "❌ M-Pesa failed.");
+    }
 });
 
-// -------------------- CALLBACK QUERIES --------------------
 bot.on('callback_query', async (q) => {
     const userId = q.from.id;
-    const pId = q.data.split('_')[1];
+    const data = q.data;
     bot.answerCallbackQuery(q.id);
 
-    try {
-        const res = await pool.query('SELECT * FROM catalog WHERE id = $1', [pId]);
-        const item = res.rows[0];
-        if (!item) return;
-
-        if (item.stars === 0) return deliverContent(userId, item);
-
-        if (q.data.startsWith('buy_')) {
-            bot.sendMessage(userId, `💳 **Select Payment:**`, {
-                reply_markup: {
-                    inline_keyboard: [
-                        [{ text: '⭐ Stars', callback_data: `stars_${pId}` }],
-                        [{ text: '🇰🇪 M-Pesa', callback_data: `mpesa_${pId}` }],
-                        [{ text: '🌍 Crypto', callback_data: `crypto_${pId}` }]
-                    ]
-                }
-            });
-        } else if (q.data.startsWith('stars_')) {
-            bot.sendInvoice(userId, "Unlock Content", "Premium Link Access", `item*${pId}`, "", "XTR",
-                [{ label: "Premium Pack", amount: item.stars }]
-            );
-        } else if (q.data.startsWith('mpesa_')) {
-            userState[userId] = { product: pId, awaitingMpesa: true };
-            bot.sendMessage(userId, "📱 **Enter M-Pesa Number:**\nFormat: 2547XXXXXXXX");
-        } else if (q.data.startsWith('crypto_')) {
-            const params = new URLSearchParams({ cmd: '_pay_simple', merchant: CP_MERCHANT_ID, amountf: item.usd, currency: 'USD', custom: `${userId}|${pId}`, ipn_url: `${WEBAPP_URL}/coinpayments/ipn` });
-            bot.sendMessage(userId, "🚀 **Pay with Crypto:**", {
-                reply_markup: { inline_keyboard: [[{ text: "Open Checkout", url: `https://www.coinpayments.net/index.php?${params.toString()}` }]] }
+    if (data === "browse_all") {
+        for (const key in CATALOG) {
+            const item = CATALOG[key];
+            await bot.sendPhoto(userId, item.cover, {
+                caption: `🔥 ${item.caption}`,
+                reply_markup: { inline_keyboard: [[{ text: `View & Unlock - ${item.stars} ⭐`, callback_data: `view_${item.id}` }]] }
             });
         }
-    } catch (e) { console.error(e.message); }
+    } else if (data.startsWith('view_')) {
+        const pId = data.split('_')[1];
+        const item = CATALOG[pId];
+        bot.sendMessage(userId, `💳 **Select Payment for:**\n${item.caption}`, {
+            reply_markup: {
+                inline_keyboard: [
+                    [{ text: `⭐ Stars (${item.stars})`, callback_data: `stars_${pId}` }],
+                    [{ text: `🇰🇪 M-Pesa (KES ${item.kes})`, callback_data: `mpesa_${pId}` }],
+                    [{ text: `🌍 Crypto ($${item.usd})`, callback_data: `crypto_${pId}` }]
+                ]
+            }
+        });
+    } else if (data.startsWith('stars_')) {
+        const pId = data.split('_')[1];
+        const item = CATALOG[pId];
+        bot.sendInvoice(userId, "Unlock Access", "Premium Link", `item*${pId}`, "", "XTR", [{ label: "Access", amount: item.stars }]);
+    } else if (data.startsWith('mpesa_')) {
+        const pId = data.split('_')[1];
+        userState[userId] = { product: pId, awaitingMpesa: true };
+        bot.sendMessage(userId, "📱 Send M-Pesa Number (254...):");
+    } else if (data.startsWith('crypto_')) {
+        const pId = data.split('_')[1];
+        const item = CATALOG[pId];
+        const params = new URLSearchParams({ cmd: '_pay_simple', merchant: CP_MERCHANT_ID, amountf: item.usd, currency: 'USD', custom: `${userId}|${pId}`, ipn_url: `${WEBAPP_URL}/coinpayments/ipn` });
+        bot.sendMessage(userId, "🚀 **Crypto Checkout:**", {
+            reply_markup: { inline_keyboard: [[{ text: "Open Payment Page", url: `https://www.coinpayments.net/index.php?${params.toString()}` }]] }
+        });
+    }
 });
 
+// -------------------- HANDLERS --------------------
 bot.on('pre_checkout_query', q => bot.answerPreCheckoutQuery(q.id, true));
-
 bot.on('successful_payment', async (msg) => {
     const pId = msg.successful_payment.invoice_payload.split('*')[1];
-    const res = await pool.query('SELECT * FROM catalog WHERE id = $1', [pId]);
-    await deliverContent(msg.from.id, res.rows[0], "Stars");
+    deliverContent(msg.from.id, CATALOG[pId], "Telegram Stars");
 });
 
 app.post('/payhero/callback', async (req, res) => {
     if (req.body.status === "Success") {
-        const parts = req.body.external_reference.split('_');
-        const resDb = await pool.query('SELECT * FROM catalog WHERE id = $1', [parts[2]]);
-        await deliverContent(parts[1], resDb.rows[0], "M-Pesa");
+        const [_, userId, pId] = req.body.external_reference.split('_');
+        deliverContent(userId, CATALOG[pId], "M-Pesa");
     }
     res.json({ success: true });
 });
@@ -287,11 +207,10 @@ app.post('/payhero/callback', async (req, res) => {
 app.post('/coinpayments/ipn', async (req, res) => {
     if (parseInt(req.body.status) >= 100) {
         const [uId, pId] = req.body.custom.split('|');
-        const resDb = await pool.query('SELECT * FROM catalog WHERE id = $1', [pId]);
-        await deliverContent(uId, resDb.rows[0], "Crypto");
+        deliverContent(uId, CATALOG[pId], "Crypto");
     }
     res.sendStatus(200);
 });
 
 const PORT = process.env.PORT || 8000;
-app.listen(PORT, '0.0.0.0', () => console.log(`🚀 Bot Live on Port ${PORT}`));
+app.listen(PORT, '0.0.0.0', () => console.log(`🚀 Bot Live on ${PORT}`));

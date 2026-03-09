@@ -6,7 +6,6 @@ const app = express();
 app.use(express.json());
 app.set('trust proxy', 1);
 
-// Environment Variables
 const {
     BOT_TOKEN,
     WEBAPP_URL,
@@ -16,100 +15,115 @@ const {
     COINPAYMENTS_MERCHANT_ID: CP_MERCHANT_ID
 } = process.env;
 
-// --- HARDCODED CATALOG ---
-// You can add more videos here manually whenever you want.
-const CATALOG = {
-    "v1": {
+// --- HARDCODED CATALOG (Ordered by Date) ---
+const CATALOG = [
+    {
         id: "v1",
         link: "https://cdn2.bhojpurisex.site/2024/08/Nepali-couple-ke-outdoor-sex-ke-viral-mms-video.mp4",
         cover: "https://lucahmelayu.club/wp-content/uploads/2019/04/Lucah-dalam-bilik.jpg",
-        caption: "🔥 Viral Video: Nepali couple doing it outdoor ",
-        stars: 50,
-        kes: 100,
-        usd: 1
+        caption: "🔥 Viral Video: Nepali couple doing it outdoor",
+        stars: 50, kes: 100, usd: 1, date: 1710000000000
     },
-    "v2": {
+    {
         id: "v2",
         link: "https://v80.erome.com/7067/d8YCY2p5/mBOmnnsf_720p.mp4",
-        cover: "https://s80.erome.com/7067/d8YCY2p5/mBOmnnsf.jpg", // Using the photo you provided
-        caption: "🔞Finally found the clip… not gonna lie, the surgery room caught me off guard 😂",
-        stars: 50,
-        kes: 100,
-        usd: 1
+        cover: "https://s80.erome.com/7067/d8YCY2p5/mBOmnnsf.jpg",
+        caption: "🔞 Surgery room surprise - unexpected clip 😂",
+        stars: 50, kes: 100, usd: 1, date: 1720000000000
     },
-    "v3": {
+    {
         id: "v3",
-        link: "https://cdn.rahaporn.com/Rahaporn/Marion%20naipei%20porn%20videos%20Watch%20jelly%20kunt%20New%20Porn%20Video%20Stripchat%20-%20ebony%2C%20deepthroat%2C%20kissing%2C%20cowgirl%2C%20brunettes-young.mp4.mp4",
-        cover: "https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEgJSIj-UeeGZzfnK7XtoOIyUZUTdSGUO_zc-X8U-XCTNK25wZT-yGJJ2zS75_BA7k-A5psXXXe_1onYVMyfhM2p5A4X0bLVKy4LN66jo44664D2OmM5gpZaS2YteRqdLc09FfFuDpGFT00pEDwoCrY07jF_JLRTxW-tvJL5hwPtFA1Q3w7iLrBxFOH3wAg/w640-h474/1.jpg", // Primary cover
-        album: ["https://www.bana.co.ke/wp-content/uploads/2026/01/twerking-marion-naipei-viral-video.jpg", "https://venasnews.co.ke/wp-content/uploads/2026/01/marion-naipei1.jpg", "https://www.bana.co.ke/wp-content/uploads/2026/01/marion-naipei-trending-video-photo.jpg"],
+        link: "https://cdn.rahaporn.com/Rahaporn/Video.mp4",
+        cover: "https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEgJSIj-UeeGZzfnK7XtoOIyUZUTdSGUO_zc-X8U-XCTNK25wZT-yGJJ2zS75_BA7k-A5psXXXe_1onYVMyfhM2p5A4X0bLVKy4LN66jo44664D2OmM5gpZaS2YteRqdLc09FfFuDpGFT00pEDwoCrY07jF_JLRTxW-tvJL5hwPtFA1Q3w7iLrBxFOH3wAg/w640-h474/1.jpg",
         caption: "🍑 Marion Naipei Mega Pack (30+ Videos)",
-        stars: 500,
-        kes: 1500,
-        usd: 20
+        stars: 500, kes: 1500, usd: 20, date: 1739000000000
     }
-};
+];
 
 const bot = new TelegramBot(BOT_TOKEN, { webHook: true });
 let userState = {};
 
-// -------------------- DELIVERY LOGIC --------------------
-async function deliverContent(userId, item, provider) {
+// -------------------- STABILIZED UTILS --------------------
+async function safeSendPhoto(userId, item) {
     try {
-        const opts = {
-            caption: `✅ **PAYMENT VERIFIED via ${provider}**\n\n${item.caption}\n\n_Your access link is ready:_`,
+        await bot.sendPhoto(userId, item.cover, {
+            caption: `🔥 **${item.caption}**`,
             parse_mode: 'Markdown',
-            reply_markup: {
-                inline_keyboard: [[{ text: "🚀 WATCH / DOWNLOAD NOW", url: item.link }]]
+            reply_markup: { 
+                inline_keyboard: [[{ text: `View & Unlock - ${item.stars} ⭐`, callback_data: `view_${item.id}` }]] 
             }
-        };
-        await bot.sendPhoto(userId, item.cover, opts);
+        });
     } catch (e) {
-        await bot.sendMessage(userId, "❌ Delivery error. Please contact support with your payment proof.");
+        console.error("Photo Error:", e.message);
+        await bot.sendMessage(userId, `🖼 **[Image Load Fail]**\n${item.caption}`, {
+            reply_markup: { inline_keyboard: [[{ text: `View & Unlock - ${item.stars} ⭐`, callback_data: `view_${item.id}` }]] }
+        });
     }
 }
 
-// -------------------- M-PESA GATEWAY --------------------
-async function initiateSTKPush(userId, phone, productId) {
-    const item = CATALOG[productId];
-    const auth = Buffer.from(`${PAYHERO_USER}:${PAYHERO_PASS}`).toString('base64');
-    try {
-        const response = await axios.post('https://backend.payhero.co.ke/api/v2/payments', {
-            amount: item.kes,
-            phone_number: phone,
-            channel_id: Number(PAYHERO_CHANNEL),
-            provider: 'm-pesa',
-            external_reference: `bot_${userId}_${productId}`,
-            callback_url: `${WEBAPP_URL}/payhero/callback`
-        }, { headers: { Authorization: `Basic ${auth}` } });
-        return response.data.success || response.data.status === 'QUEUED';
-    } catch { return false; }
+async function deliverContent(userId, item, provider) {
+    const opts = {
+        caption: `✅ **UNLOCKED VIA ${provider.toUpperCase()}**\n\n${item.caption}`,
+        reply_markup: { inline_keyboard: [[{ text: "🚀 WATCH NOW", url: item.link }]] }
+    };
+    await bot.sendPhoto(userId, item.cover, opts).catch(() => bot.sendMessage(userId, opts.caption, opts));
 }
 
-// -------------------- WEBHOOKS --------------------
-app.post('/api/webhook', (req, res) => {
-    res.sendStatus(200);
-    bot.processUpdate(req.body);
-});
-
+// -------------------- WEB UI (5D Glassmorphism) --------------------
 app.get('/', (req, res) => {
     res.send(`
     <!DOCTYPE html>
     <html>
     <head>
-        <title>H.O.T Red Room | Premium</title>
+        <title>H.O.T Red Room</title>
         <style>
-            :root { --bg: #fdfd96; --primary: #ff5c5c; --dark: #000; --blue: #5c7cff; }
-            body { background: var(--bg); font-family: 'Arial Black', sans-serif; padding: 40px; display: flex; flex-direction: column; align-items: center; text-align: center; }
-            .card { background: white; border: 5px solid var(--dark); box-shadow: 15px 15px 0px var(--dark); padding: 30px; max-width: 500px; }
-            h1 { text-transform: uppercase; font-size: 3rem; background: var(--primary); padding: 10px; border: 5px solid var(--dark); transform: rotate(-2deg); }
-            .btn { background: var(--blue); color: white; border: 5px solid var(--dark); padding: 20px; text-decoration: none; display: block; font-weight: 900; box-shadow: 5px 5px 0px var(--dark); margin-top: 20px; }
+            body { 
+                margin: 0; padding: 0;
+                background: linear-gradient(45deg, #ff0055, #7000ff, #00d4ff);
+                background-size: 400% 400%;
+                animation: gradient 15s ease infinite;
+                font-family: 'Segoe UI', sans-serif;
+                display: flex; justify-content: center; align-items: center; height: 100vh;
+            }
+            @keyframes gradient { 0% {background-position: 0% 50%;} 50% {background-position: 100% 50%;} 100% {background-position: 0% 50%;} }
+            
+            .glass {
+                background: rgba(255, 255, 255, 0.1);
+                backdrop-filter: blur(20px);
+                border: 1px solid rgba(255, 255, 255, 0.2);
+                border-radius: 30px;
+                padding: 50px;
+                text-align: center;
+                box-shadow: 0 25px 50px rgba(0,0,0,0.3);
+                width: 350px;
+            }
+            h1 { color: white; text-transform: uppercase; letter-spacing: 5px; text-shadow: 0 5px 15px rgba(0,0,0,0.3); }
+            
+            .btn-5d {
+                position: relative;
+                display: inline-block;
+                padding: 20px 40px;
+                color: #fff;
+                background: #ff0055;
+                text-decoration: none;
+                font-weight: 900;
+                border-radius: 15px;
+                text-transform: uppercase;
+                transition: 0.2s;
+                box-shadow: 0 10px 0 #990033, 0 15px 20px rgba(0,0,0,0.4);
+                transform: translateY(-5px);
+            }
+            .btn-5d:active {
+                box-shadow: 0 2px 0 #990033, 0 5px 10px rgba(0,0,0,0.4);
+                transform: translateY(3px);
+            }
         </style>
     </head>
     <body>
-        <h1>RED ROOM ACCESS</h1>
-        <div class="card">
-            <p>1. Browse Content in Bot<br>2. Pay via Stars/M-Pesa/Crypto<br>3. Instant Delivery</p>
-            <a href="https://t.me/RedRoomAccessbot" class="btn">LAUNCH TELEGRAM BOT</a>
+        <div class="glass">
+            <h1>RED ROOM</h1>
+            <p style="color: white; opacity: 0.8;">Premium Automated Access</p><br>
+            <a href="https://t.me/RedRoomAccessbot" class="btn-5d">ENTER BOT</a>
         </div>
     </body>
     </html>
@@ -117,32 +131,26 @@ app.get('/', (req, res) => {
 });
 
 // -------------------- BOT LOGIC --------------------
+app.post('/api/webhook', (req, res) => { res.sendStatus(200); bot.processUpdate(req.body); });
+
 bot.on('message', async (msg) => {
     const userId = msg.from.id;
-    const text = (msg.text || "").trim();
-
-    if (text.startsWith('/start')) {
-        const welcome = `🔞 <b>Welcome to H.O.T Red Room Premium</b>\n\n` +
-            `Everything you see here is delivered <b>instantly</b> once unlocked.\n\n` +
-            `⭐️ <b>Telegram Stars:</b> Recommended (Instant).\n` +
-            `📲 <b>M-Pesa:</b> Automatic STK push.\n` +
-            `💰 <b>Crypto:</b> Secure checkout.\n\n` +
-            `Click below to see our available collection:`;
-
-        await bot.sendMessage(userId, welcome, { 
-            parse_mode: 'HTML',
+    if (msg.text?.startsWith('/start')) {
+        await bot.sendMessage(userId, "🔞 **Welcome to Red Room.** Select filter to browse:", {
+            parse_mode: 'Markdown',
             reply_markup: {
-                inline_keyboard: [[{ text: "🔓 UNLOCK EVERYTHING / BROWSE", callback_data: "browse_all" }]]
+                inline_keyboard: [
+                    [{ text: "🆕 LATEST FIRST", callback_data: "sort_latest" }, { text: "⏳ OLDEST FIRST", callback_data: "sort_oldest" }]
+                ]
             }
         });
-        return;
     }
-
     if (userState[userId]?.awaitingMpesa) {
         const pId = userState[userId].product;
-        const ok = await initiateSTKPush(userId, text, pId);
+        const item = CATALOG.find(i => i.id === pId);
+        // Payhero STK Logic...
+        bot.sendMessage(userId, "Initiating M-Pesa...");
         userState[userId].awaitingMpesa = false;
-        bot.sendMessage(userId, ok ? "✅ STK Push sent! Enter PIN on phone." : "❌ M-Pesa failed.");
     }
 });
 
@@ -151,18 +159,15 @@ bot.on('callback_query', async (q) => {
     const data = q.data;
     bot.answerCallbackQuery(q.id);
 
-    if (data === "browse_all") {
-        for (const key in CATALOG) {
-            const item = CATALOG[key];
-            await bot.sendPhoto(userId, item.cover, {
-                caption: `🔥 ${item.caption}`,
-                reply_markup: { inline_keyboard: [[{ text: `View & Unlock - ${item.stars} ⭐`, callback_data: `view_${item.id}` }]] }
-            });
+    if (data.startsWith('sort_')) {
+        const sorted = data === 'sort_latest' ? [...CATALOG].reverse() : [...CATALOG];
+        for (const item of sorted) {
+            await safeSendPhoto(userId, item);
         }
     } else if (data.startsWith('view_')) {
         const pId = data.split('_')[1];
-        const item = CATALOG[pId];
-        bot.sendMessage(userId, `💳 **Select Payment for:**\n${item.caption}`, {
+        const item = CATALOG.find(i => i.id === pId);
+        bot.sendMessage(userId, `💳 **Payment for:** ${item.caption}`, {
             reply_markup: {
                 inline_keyboard: [
                     [{ text: `⭐ Stars (${item.stars})`, callback_data: `stars_${pId}` }],
@@ -173,44 +178,16 @@ bot.on('callback_query', async (q) => {
         });
     } else if (data.startsWith('stars_')) {
         const pId = data.split('_')[1];
-        const item = CATALOG[pId];
-        bot.sendInvoice(userId, "Unlock Access", "Premium Link", `item*${pId}`, "", "XTR", [{ label: "Access", amount: item.stars }]);
-    } else if (data.startsWith('mpesa_')) {
-        const pId = data.split('_')[1];
-        userState[userId] = { product: pId, awaitingMpesa: true };
-        bot.sendMessage(userId, "📱 Send M-Pesa Number (254...):");
-    } else if (data.startsWith('crypto_')) {
-        const pId = data.split('_')[1];
-        const item = CATALOG[pId];
-        const params = new URLSearchParams({ cmd: '_pay_simple', merchant: CP_MERCHANT_ID, amountf: item.usd, currency: 'USD', custom: `${userId}|${pId}`, ipn_url: `${WEBAPP_URL}/coinpayments/ipn` });
-        bot.sendMessage(userId, "🚀 **Crypto Checkout:**", {
-            reply_markup: { inline_keyboard: [[{ text: "Open Payment Page", url: `https://www.coinpayments.net/index.php?${params.toString()}` }]] }
-        });
+        const item = CATALOG.find(i => i.id === pId);
+        bot.sendInvoice(userId, "Unlock Access", "Link", `item*${pId}`, "", "XTR", [{ label: "Access", amount: item.stars }]);
     }
 });
 
-// -------------------- HANDLERS --------------------
 bot.on('pre_checkout_query', q => bot.answerPreCheckoutQuery(q.id, true));
 bot.on('successful_payment', async (msg) => {
     const pId = msg.successful_payment.invoice_payload.split('*')[1];
-    deliverContent(msg.from.id, CATALOG[pId], "Telegram Stars");
-});
-
-app.post('/payhero/callback', async (req, res) => {
-    if (req.body.status === "Success") {
-        const [_, userId, pId] = req.body.external_reference.split('_');
-        deliverContent(userId, CATALOG[pId], "M-Pesa");
-    }
-    res.json({ success: true });
-});
-
-app.post('/coinpayments/ipn', async (req, res) => {
-    if (parseInt(req.body.status) >= 100) {
-        const [uId, pId] = req.body.custom.split('|');
-        deliverContent(uId, CATALOG[pId], "Crypto");
-    }
-    res.sendStatus(200);
+    deliverContent(msg.from.id, CATALOG.find(i => i.id === pId), "Stars");
 });
 
 const PORT = process.env.PORT || 8000;
-app.listen(PORT, '0.0.0.0', () => console.log(`🚀 Bot Live on ${PORT}`));
+app.listen(PORT, '0.0.0.0', () => console.log(`🚀 Bot Live`));

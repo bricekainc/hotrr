@@ -21,7 +21,7 @@ const CATALOG = [
     {
         id: "v1",
         link: "https://cdn2.bhojpurisex.site/2024/08/Nepali-couple-ke-outdoor-sex-ke-viral-mms-video.mp4",
-        cover: "https://lucahmelayu.club/wp-content/uploads/2019/04/Lucah-dalam-bilik.jpg",
+        cover: "https://pbs.twimg.com/ext_tw_video_thumb/1354298913100943361/pu/img/vnLdEeIgwLjWJmJm.jpg",
         caption: "🔥 Viral Video: Nepali couple doing it outdoor",
         stars: 50, kes: 100, usd: 1, date: 1710000000000
     },

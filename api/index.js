@@ -6,6 +6,7 @@ const app = express();
 app.use(express.json());
 app.set('trust proxy', 1);
 
+// Environment Variables
 const {
     BOT_TOKEN,
     WEBAPP_URL,
@@ -15,7 +16,7 @@ const {
     COINPAYMENTS_MERCHANT_ID: CP_MERCHANT_ID
 } = process.env;
 
-// --- HARDCODED CATALOG (Ordered by Date) ---
+// --- CATALOG (Array format for Filtering) ---
 const CATALOG = [
     {
         id: "v1",
@@ -54,19 +55,43 @@ async function safeSendPhoto(userId, item) {
             }
         });
     } catch (e) {
-        console.error("Photo Error:", e.message);
-        await bot.sendMessage(userId, `🖼 **[Image Load Fail]**\n${item.caption}`, {
+        await bot.sendMessage(userId, `🖼 **[Preview Available]**\n${item.caption}`, {
             reply_markup: { inline_keyboard: [[{ text: `View & Unlock - ${item.stars} ⭐`, callback_data: `view_${item.id}` }]] }
         });
     }
 }
 
 async function deliverContent(userId, item, provider) {
-    const opts = {
-        caption: `✅ **UNLOCKED VIA ${provider.toUpperCase()}**\n\n${item.caption}`,
-        reply_markup: { inline_keyboard: [[{ text: "🚀 WATCH NOW", url: item.link }]] }
-    };
-    await bot.sendPhoto(userId, item.cover, opts).catch(() => bot.sendMessage(userId, opts.caption, opts));
+    try {
+        const opts = {
+            caption: `✅ **PAYMENT VERIFIED via ${provider}**\n\n${item.caption}\n\n_Your access link is ready:_`,
+            parse_mode: 'Markdown',
+            reply_markup: {
+                inline_keyboard: [[{ text: "🚀 WATCH / DOWNLOAD NOW", url: item.link }]]
+            }
+        };
+        await bot.sendPhoto(userId, item.cover, opts);
+    } catch (e) {
+        await bot.sendMessage(userId, `✅ **PAYMENT VERIFIED!**\n\nLink: ${item.link}`);
+    }
+}
+
+// -------------------- PAYMENT GATEWAYS --------------------
+async function initiateSTKPush(userId, phone, productId) {
+    const item = CATALOG.find(i => i.id === productId);
+    if (!item) return false;
+    const auth = Buffer.from(`${PAYHERO_USER}:${PAYHERO_PASS}`).toString('base64');
+    try {
+        const response = await axios.post('https://backend.payhero.co.ke/api/v2/payments', {
+            amount: item.kes,
+            phone_number: phone,
+            channel_id: Number(PAYHERO_CHANNEL),
+            provider: 'm-pesa',
+            external_reference: `bot_${userId}_${productId}`,
+            callback_url: `${WEBAPP_URL}/payhero/callback`
+        }, { headers: { Authorization: `Basic ${auth}` } });
+        return response.data.success || response.data.status === 'QUEUED';
+    } catch (e) { return false; }
 }
 
 // -------------------- WEB UI (5D Glassmorphism) --------------------
@@ -75,7 +100,7 @@ app.get('/', (req, res) => {
     <!DOCTYPE html>
     <html>
     <head>
-        <title>H.O.T Red Room</title>
+        <title>H.O.T Red Room | Premium</title>
         <style>
             body { 
                 margin: 0; padding: 0;
@@ -86,7 +111,6 @@ app.get('/', (req, res) => {
                 display: flex; justify-content: center; align-items: center; height: 100vh;
             }
             @keyframes gradient { 0% {background-position: 0% 50%;} 50% {background-position: 100% 50%;} 100% {background-position: 0% 50%;} }
-            
             .glass {
                 background: rgba(255, 255, 255, 0.1);
                 backdrop-filter: blur(20px);
@@ -98,7 +122,6 @@ app.get('/', (req, res) => {
                 width: 350px;
             }
             h1 { color: white; text-transform: uppercase; letter-spacing: 5px; text-shadow: 0 5px 15px rgba(0,0,0,0.3); }
-            
             .btn-5d {
                 position: relative;
                 display: inline-block;
@@ -130,27 +153,43 @@ app.get('/', (req, res) => {
     `);
 });
 
-// -------------------- BOT LOGIC --------------------
+// -------------------- BOT CORE LOGIC --------------------
 app.post('/api/webhook', (req, res) => { res.sendStatus(200); bot.processUpdate(req.body); });
 
 bot.on('message', async (msg) => {
     const userId = msg.from.id;
-    if (msg.text?.startsWith('/start')) {
-        await bot.sendMessage(userId, "🔞 **Welcome to Red Room.** Select filter to browse:", {
+    const text = (msg.text || "").trim();
+
+    if (text.startsWith('/start')) {
+        const welcome = `🔞 **WELCOME TO H.O.T RED ROOM PREMIUM**\n\n` +
+            `Access our exclusive vault instantly using the steps below:\n\n` +
+            `🔹 **STEP 1: BROWSE**\n` +
+            `Click the buttons below to filter content by Latest or Oldest.\n\n` +
+            `🔹 **STEP 2: SELECT & PAY**\n` +
+            `Click "View & Unlock" on any post. We support:\n` +
+            `• ⭐️ **Telegram Stars:** Instant access.\n` +
+            `• 📲 **M-Pesa:** Enter your number for an STK Push.\n` +
+            `• 💰 **Crypto:** Secure checkout via CoinPayments.\n\n` +
+            `🔹 **STEP 3: INSTANT DELIVERY**\n` +
+            `Once paid, the bot sends you the high-speed link automatically.`;
+
+        await bot.sendMessage(userId, welcome, { 
             parse_mode: 'Markdown',
             reply_markup: {
                 inline_keyboard: [
-                    [{ text: "🆕 LATEST FIRST", callback_data: "sort_latest" }, { text: "⏳ OLDEST FIRST", callback_data: "sort_oldest" }]
+                    [{ text: "🆕 BROWSE LATEST", callback_data: "sort_latest" }],
+                    [{ text: "⏳ BROWSE OLDEST", callback_data: "sort_oldest" }]
                 ]
             }
         });
+        return;
     }
+
     if (userState[userId]?.awaitingMpesa) {
         const pId = userState[userId].product;
-        const item = CATALOG.find(i => i.id === pId);
-        // Payhero STK Logic...
-        bot.sendMessage(userId, "Initiating M-Pesa...");
+        const ok = await initiateSTKPush(userId, text, pId);
         userState[userId].awaitingMpesa = false;
+        bot.sendMessage(userId, ok ? "✅ **STK Push Sent!** Enter your M-Pesa PIN on your phone." : "❌ **STK Push Failed.** Check your number and try again.");
     }
 });
 
@@ -167,7 +206,7 @@ bot.on('callback_query', async (q) => {
     } else if (data.startsWith('view_')) {
         const pId = data.split('_')[1];
         const item = CATALOG.find(i => i.id === pId);
-        bot.sendMessage(userId, `💳 **Payment for:** ${item.caption}`, {
+        bot.sendMessage(userId, `💳 **Select Payment for:**\n${item.caption}`, {
             reply_markup: {
                 inline_keyboard: [
                     [{ text: `⭐ Stars (${item.stars})`, callback_data: `stars_${pId}` }],
@@ -176,18 +215,46 @@ bot.on('callback_query', async (q) => {
                 ]
             }
         });
+    } else if (data.startsWith('mpesa_')) {
+        const pId = data.split('_')[1];
+        userState[userId] = { product: pId, awaitingMpesa: true };
+        bot.sendMessage(userId, "📱 **Enter your M-Pesa Number:**\nFormat: 2547XXXXXXXX");
+    } else if (data.startsWith('crypto_')) {
+        const pId = data.split('_')[1];
+        const item = CATALOG.find(i => i.id === pId);
+        const params = new URLSearchParams({ cmd: '_pay_simple', merchant: CP_MERCHANT_ID, amountf: item.usd, currency: 'USD', custom: `${userId}|${pId}`, ipn_url: `${WEBAPP_URL}/coinpayments/ipn` });
+        bot.sendMessage(userId, "🚀 **Crypto Checkout:**", {
+            reply_markup: { inline_keyboard: [[{ text: "Open Payment Page", url: `https://www.coinpayments.net/index.php?${params.toString()}` }]] }
+        });
     } else if (data.startsWith('stars_')) {
         const pId = data.split('_')[1];
         const item = CATALOG.find(i => i.id === pId);
-        bot.sendInvoice(userId, "Unlock Access", "Link", `item*${pId}`, "", "XTR", [{ label: "Access", amount: item.stars }]);
+        bot.sendInvoice(userId, "Unlock Access", "Premium Link", `item*${pId}`, "", "XTR", [{ label: "Access", amount: item.stars }]);
     }
 });
 
+// -------------------- CALLBACK HANDLERS --------------------
 bot.on('pre_checkout_query', q => bot.answerPreCheckoutQuery(q.id, true));
 bot.on('successful_payment', async (msg) => {
     const pId = msg.successful_payment.invoice_payload.split('*')[1];
     deliverContent(msg.from.id, CATALOG.find(i => i.id === pId), "Stars");
 });
 
+app.post('/payhero/callback', async (req, res) => {
+    if (req.body.status === "Success") {
+        const [_, userId, pId] = req.body.external_reference.split('_');
+        deliverContent(userId, CATALOG.find(i => i.id === pId), "M-Pesa");
+    }
+    res.json({ success: true });
+});
+
+app.post('/coinpayments/ipn', async (req, res) => {
+    if (parseInt(req.body.status) >= 100) {
+        const [uId, pId] = req.body.custom.split('|');
+        deliverContent(uId, CATALOG.find(i => i.id === pId), "Crypto");
+    }
+    res.sendStatus(200);
+});
+
 const PORT = process.env.PORT || 8000;
-app.listen(PORT, '0.0.0.0', () => console.log(`🚀 Bot Live`));
+app.listen(PORT, '0.0.0.0', () => console.log(`🚀 Red Room Active on ${PORT}`));

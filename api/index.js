@@ -218,13 +218,29 @@ bot.on('callback_query', async (q) => {
     } else if (data.startsWith('mpesa_')) {
         const pId = data.split('_')[1];
         userState[userId] = { product: pId, awaitingMpesa: true };
-        bot.sendMessage(userId, "📱 **Enter your M-Pesa Number:**\nFormat: 2547XXXXXXXX");
-    } else if (data.startsWith('crypto_')) {
+        bot.sendMessage(userId, "📱 **Enter your M-Pesa Number:**\nFormat: 2547XXXXXXXX", {
+            parse_mode: 'Markdown' // FIX: This enables the Bold formatting
+        });
+       } else if (data.startsWith('crypto_')) {
         const pId = data.split('_')[1];
         const item = CATALOG.find(i => i.id === pId);
-        const params = new URLSearchParams({ cmd: '_pay_simple', merchant: CP_MERCHANT_ID, amountf: item.usd, currency: 'USD', custom: `${userId}|${pId}`, ipn_url: `${WEBAPP_URL}/coinpayments/ipn` });
+        
+        // Added item_name to fix the CoinPayments "No item_name set" error
+        const params = new URLSearchParams({ 
+            cmd: '_pay_simple', 
+            merchant: CP_MERCHANT_ID, 
+            amountf: item.usd, 
+            currency: 'USD', 
+            item_name: `Access to ${item.id}`, // FIX: Added this line
+            custom: `${userId}|${pId}`, 
+            ipn_url: `${WEBAPP_URL}/coinpayments/ipn` 
+        });
+
         bot.sendMessage(userId, "🚀 **Crypto Checkout:**", {
-            reply_markup: { inline_keyboard: [[{ text: "Open Payment Page", url: `https://www.coinpayments.net/index.php?${params.toString()}` }]] }
+            parse_mode: 'Markdown', // FIX: Added this to make text Bold
+            reply_markup: { 
+                inline_keyboard: [[{ text: "Open Payment Page", url: `https://www.coinpayments.net/index.php?${params.toString()}` }]] 
+            }
         });
     } else if (data.startsWith('stars_')) {
         const pId = data.split('_')[1];

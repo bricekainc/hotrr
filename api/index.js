@@ -66,6 +66,13 @@ const CATALOG = [
         cover: "https://instagram.fmba5-2.fna.fbcdn.net/v/t51.71878-15/631962020_1442981427364931_7170113285725277370_n.jpg?stp=dst-jpg_e15_tt6&_nc_cat=106&ig_cache_key=MzgzNTQzMzQ5OTM1MjAxMDg0OA%3D%3D.3-ccb7-5&ccb=7-5&_nc_sid=58cdad&efg=eyJ2ZW5jb2RlX3RhZyI6InhwaWRzLjY0MHgxMTM2LnNkci5DMyJ9&_nc_ohc=1lKPhlgtm2oQ7kNvwH5bhe0&_nc_oc=AdlvRV4TJPAWEo9rRq1U-h0LyJivil5jEbuIfYmIfq7LxfK1m1KjwI0-paP8lr3oB2c&_nc_ad=z-m&_nc_cid=0&_nc_zt=23&_nc_ht=instagram.fmba5-2.fna&_nc_gid=sN2X37k6conZ-uG3GpLc5g&_nc_ss=8&oh=00_AfyZNF_6dqG0pHNP77b8iAhCbP2zRNOcaA4ScoktPHLxfw&oe=69B43F33",
         caption: "🔞 Alleged Mjaka Mfine Porn Video 😂",
         stars: 50, kes: 100, usd: 1, date: 1770000000000
+    },
+    {
+        id: "v8",
+        link: "https://i.ibb.co/cXZvCkTf/photo-2026-03-31-12-00-19.jpg",
+        cover: "https://i.ibb.co/cXZvCkTf/photo-2026-03-31-12-00-19.jpg",
+        caption: "🔞 Gilo Ntinyari leaked videos (anakulwa hadi nyuma, wueee😂",
+        stars: 100, kes: 200, usd: 2, date: 1780000000000
     }
 ];
 

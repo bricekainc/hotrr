@@ -18,6 +18,32 @@ const {
 
 // --- CATALOG (Array format for Filtering) ---
 const CATALOG = [
+  // Add these to the top of your CATALOG array
+{
+    id: "plan_1h",
+    caption: "🎟 Red Room Membership: 1 Hour",
+    stars: 50, kes: 99, usd: 0.99, isMembership: true, durationMs: 3600000
+},
+{
+    id: "plan_1d",
+    caption: "🎟 Red Room Membership: 1 Day",
+    stars: 150, kes: 299, usd: 2.99, isMembership: true, durationMs: 86400000
+},
+{
+    id: "plan_1w",
+    caption: "🎟 Red Room Membership: 1 Week",
+    stars: 250, kes: 499, usd: 4.99, isMembership: true, durationMs: 604800000
+},
+{
+    id: "plan_1m",
+    caption: "🎟 Red Room Membership: 1 Month",
+    stars: 350, kes: 699, usd: 6.99, isMembership: true, durationMs: 2592000000
+},
+{
+    id: "plan_1y",
+    caption: "🎟 Red Room Membership: 1 Year",
+    stars: 500, kes: 999, usd: 9.99, isMembership: true, durationMs: 31536000000
+},
     {
         id: "v1",
         link: "https://cdn2.bhojpurisex.site/2024/08/Nepali-couple-ke-outdoor-sex-ke-viral-mms-video.mp4",
@@ -196,29 +222,25 @@ bot.on('message', async (msg) => {
     const text = (msg.text || "").trim();
 
     if (text.startsWith('/start')) {
-        const welcome = `🔞 **WELCOME TO H.O.T RED ROOM PREMIUM**\n\n` +
-            `Access our exclusive vault instantly using the steps below:\n\n` +
-            `🔹 **STEP 1: BROWSE**\n` +
-            `Click the buttons below to filter content by Latest or Oldest.\n\n` +
-            `🔹 **STEP 2: SELECT & PAY**\n` +
-            `Click "View & Unlock" on any post. We support:\n` +
-            `• ⭐️ **Telegram Stars:** Instant access.\n` +
-            `• 📲 **M-Pesa:** Enter your number for an STK Push.\n` +
-            `• 💰 **Crypto:** Secure checkout via CoinPayments.\n\n` +
-            `🔹 **STEP 3: INSTANT DELIVERY**\n` +
-            `Once paid, the bot sends you the high-speed link automatically.`;
+    const welcome = `🔞 **WELCOME TO H.O.T RED ROOM PREMIUM**\n\n` +
+        `Access our exclusive vault instantly:\n\n` +
+        `🔴 **JOIN THE RED ROOM**\n` +
+        `Get full access to the private community.\n\n` +
+        `🔹 **BROWSE INDIVIDUAL CLIPS**\n` +
+        `Pay per view for specific viral leaks.`;
 
-        await bot.sendMessage(userId, welcome, { 
-            parse_mode: 'Markdown',
-            reply_markup: {
-                inline_keyboard: [
-                    [{ text: "🆕 BROWSE LATEST", callback_data: "sort_latest" }],
-                    [{ text: "⏳ BROWSE OLDEST", callback_data: "sort_oldest" }]
-                ]
-            }
-        });
-        return;
-    }
+    await bot.sendMessage(userId, welcome, { 
+        parse_mode: 'Markdown',
+        reply_markup: {
+            inline_keyboard: [
+                [{ text: "🔴 JOIN THE RED ROOM (FULL ACCESS)", callback_data: "membership_plans" }],
+                [{ text: "🆕 BROWSE LATEST", callback_data: "sort_latest" }],
+                [{ text: "⏳ BROWSE OLDEST", callback_data: "sort_oldest" }]
+            ]
+        }
+    });
+    return;
+}
 
     if (userState[userId]?.awaitingMpesa) {
         const pId = userState[userId].product;
@@ -232,6 +254,15 @@ bot.on('callback_query', async (q) => {
     const userId = q.from.id;
     const data = q.data;
     bot.answerCallbackQuery(q.id);
+
+  if (data === 'membership_plans') {
+    const plans = CATALOG.filter(i => i.isMembership);
+    const buttons = plans.map(p => [{ text: `${p.caption.split(': ')[1]} - KES ${p.kes}`, callback_data: `view_${p.id}` }]);
+    bot.sendMessage(userId, "💎 **Select your Membership Plan:**", {
+        parse_mode: 'Markdown',
+        reply_markup: { inline_keyboard: buttons }
+    });
+}
 
     if (data.startsWith('sort_')) {
         const sorted = data === 'sort_latest' ? [...CATALOG].reverse() : [...CATALOG];

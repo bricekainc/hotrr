@@ -123,18 +123,32 @@ async function safeSendPhoto(userId, item) {
 }
 
 async function deliverContent(userId, item, provider) {
-    try {
-        const opts = {
-            caption: `✅ **PAYMENT VERIFIED via ${provider}**\n\n${item.caption}\n\n_Your access link is ready:_`,
-            parse_mode: 'Markdown',
-            reply_markup: {
-                inline_keyboard: [[{ text: "🚀 WATCH / DOWNLOAD NOW", url: item.link }]]
-            }
-        };
-        await bot.sendPhoto(userId, item.cover, opts);
-    } catch (e) {
-        await bot.sendMessage(userId, `✅ **PAYMENT VERIFIED!**\n\nLink: ${item.link}`);
-    }
+    try {
+        if (item.isMembership) {
+            // Generate a single-use join link valid for 1 member
+            const link = await bot.createChatInviteLink(process.env.PRIVATE_CHAT_ID, {
+                member_limit: 1,
+                expire_date: Math.floor(Date.now() / 1000) + 86400 // Link expires in 24h if not used
+            });
+
+            await bot.sendMessage(userId, `✅ **PAYMENT VERIFIED!**\n\nWelcome to the Red Room. Your private access link is ready:\n\n${link.invite_link}\n\n_Note: This link is valid for one entry only._`, {
+                parse_mode: 'Markdown'
+            });
+            
+            // LOGIC NOTE: To auto-remove members, you must save 'userId' and 'durationMs' 
+            // to a database here and run a background cron job.
+        } else {
+            // Original delivery logic for single videos
+            const opts = {
+                caption: `✅ **PAYMENT VERIFIED via ${provider}**\n\n${item.caption}\n\n_Your access link is ready:_`,
+                parse_mode: 'Markdown',
+                reply_markup: { inline_keyboard: [[{ text: "🚀 WATCH / DOWNLOAD NOW", url: item.link }]] }
+            };
+            await bot.sendPhoto(userId, item.cover, opts);
+        }
+    } catch (e) {
+        bot.sendMessage(userId, `✅ Payment received, but I couldn't generate a link. Contact Admin, @tookarius for the Join Link.`);
+    }
 }
 
 // -------------------- PAYMENT GATEWAYS --------------------
